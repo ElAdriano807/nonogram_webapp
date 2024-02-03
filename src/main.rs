@@ -59,12 +59,15 @@ struct Video {
 #[derive(Properties, PartialEq)]
 struct VideosProp {
     videos: Vec<Video>,
-    test: i32
+    test: i32,
 }
 
 #[function_component]
-fn VideosList(VideosProp{ videos, test }: &VideosProp) -> Html {
-    videos.iter().map(|video| p_from_video(video, test)).collect()
+fn VideosList(VideosProp { videos, test }: &VideosProp) -> Html {
+    videos
+        .iter()
+        .map(|video| p_from_video(video, test))
+        .collect()
 }
 
 fn p_from_video(video: &Video, test: &i32) -> Html {
