@@ -38,7 +38,7 @@ fn app() -> Html {
             <h1>{ "RustConf Explorer" }</h1>
             <div>
                 <h3>{"Videos to watch"}</h3>
-               <VideosList videos={ videos } test={ 5 } />
+               <VideosList videos={ videos } test={ 7 } />
             </div>
             <div>
                 <h3>{ "John Doe: Building and breaking things" }</h3>
