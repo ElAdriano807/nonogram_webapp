@@ -1,8 +1,8 @@
 use log::info;
-use stylist::css;
-use web_sys::{FocusEvent, HtmlInputElement, InputEvent, KeyboardEvent, MouseEvent};
-use yew::{Callback, Component, Context, function_component, Html, html, Properties, TargetCast};
-use TodoListMessage::{Add, Search, DeleteAll, ToggleComplete, Delete, Edit};
+use stylist::{css, StyleSource};
+use web_sys::{HtmlInputElement, InputEvent, KeyboardEvent, MouseEvent};
+use yew::{html, Callback, Component, Context, Html, Properties, TargetCast};
+use TodoListMessage::{Add, Delete, DeleteAll, Edit, Search, ToggleComplete};
 
 #[derive(Clone, PartialEq)]
 struct Todo {
@@ -10,6 +10,7 @@ struct Todo {
     completed: bool,
 }
 
+// region TodoList
 pub enum TodoListMessage {
     Add(String),
     Search(String),
@@ -25,14 +26,12 @@ pub struct TodoList {
 impl Component for TodoList {
     type Message = TodoListMessage;
     type Properties = ();
-
     fn create(_ctx: &Context<Self>) -> Self {
         Self {
             todos: vec![],
             filter: String::new(),
         }
     }
-
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Add(todo) => {
@@ -75,19 +74,18 @@ impl Component for TodoList {
             }
         }
     }
-
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div>
                 <h1>{ "Todos" }</h1>
                 <FilterInput filter_oninput={Self::filter_oninput(ctx)}/>
                 <TodoInput add_onkeypress={Self::add_onkeypress(ctx)}/>
+                <DeleteAllTodosButton delete_all_onclick={Self::delete_all_onclick(ctx)}/>
                 <ul>
                     { for self.todos.iter().filter(|todo| todo.description.matches(&self.filter).count() > 0).enumerate().map(|(index, todo)| html! {
                         <TodoListItem todo={todo.clone()} toggle_complete_onclick={Self::toggle_complete_onclick(ctx, index)} delete_onclick={Self::delete_onclick(ctx, index)} edit_onkeypress={Self::edit_onkeypress(ctx, index)}/>
                     }) }
                 </ul>
-                <DeleteAllTodosButton delete_all_onclick={Self::delete_all_onclick(ctx)}/>
             </div>
         }
     }
@@ -146,12 +144,14 @@ impl TodoList {
         })
     }
 }
+// endregion
 
+// region TodoListItem
 enum TodoListItemMessage {
-    Edit(bool)
+    Edit(bool),
 }
-#[derive(Properties, PartialEq)]
-struct TodoListItemProps {
+#[derive(PartialEq, Properties)]
+pub struct TodoListItemProps {
     todo: Todo,
     toggle_complete_onclick: Callback<MouseEvent>,
     delete_onclick: Callback<MouseEvent>,
@@ -164,15 +164,12 @@ impl Component for TodoListItem {
     type Message = TodoListItemMessage;
     type Properties = TodoListItemProps;
     fn create(_ctx: &Context<Self>) -> Self {
-        Self {
-            edit_mode: false,
-        }
+        Self { edit_mode: false }
     }
-
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             TodoListItemMessage::Edit(edit) => {
-                info!("Receive Edit");
+                info!("Receive Edit({})", edit);
                 self.edit_mode = edit;
                 true
             }
@@ -192,17 +189,16 @@ impl Component for TodoListItem {
                       }
                   }
                 }
-                <button onclick={Self::delete_onkeypress(ctx)}>{"Delete"}</button>
-                <button onclick={Self::edit_onclick(ctx, self.edit_mode)}>{if self.edit_mode {"Cancel"} else {"Edit"}}</button>
+                <button onclick={Self::delete_onkeypress(ctx)} tabindex="0">{"Delete"}</button>
+                <button onclick={Self::edit_onclick(ctx, self.edit_mode)} tabindex="0">{if self.edit_mode {"Cancel"} else {"Edit"}}</button>
             </li>
         }
     }
 }
-
 impl TodoListItem {
     fn edit_onclick(ctx: &Context<Self>, edit_mode: bool) -> Callback<MouseEvent> {
         ctx.link().callback(move |_| {
-            info!("Send Edit");
+            info!("Send Edit({})", !edit_mode);
             TodoListItemMessage::Edit(!edit_mode)
         })
     }
@@ -211,7 +207,7 @@ impl TodoListItem {
         ctx.link().batch_callback(move |e: KeyboardEvent| {
             callback.emit(e.clone());
             if e.key() == "Enter" {
-                info!("Send Edit");
+                info!("Send Edit({})", false);
                 Some(TodoListItemMessage::Edit(false))
             } else {
                 None
@@ -227,50 +223,159 @@ impl TodoListItem {
         })
     }
 }
+// endregion
 
-#[derive(Properties, PartialEq)]
-struct TodoInputProps {
+// region TodoInput
+enum TodoInputMessage {}
+#[derive(PartialEq, Properties)]
+pub struct TodoInputProps {
     add_onkeypress: Callback<KeyboardEvent>,
 }
-#[function_component]
-fn TodoInput(props: &TodoInputProps) -> Html {
-    html!{
-        <input onkeypress={props.add_onkeypress.clone()} placeholder="What needs to be done?"/>
+struct TodoInput;
+impl Component for TodoInput {
+    type Message = TodoInputMessage;
+    type Properties = TodoInputProps;
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self
+    }
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            <input
+                class={Self::style()}
+                onkeypress={ctx.props().add_onkeypress.clone()}
+                placeholder="What needs to be done?"
+            />
+        }
     }
 }
-
-#[derive(Properties, PartialEq)]
-struct DeleteAllTodosButtonProps {
-    delete_all_onclick: Callback<MouseEvent>
-}
-#[function_component]
-fn DeleteAllTodosButton(props: &DeleteAllTodosButtonProps) -> Html {
-    html! {
-        <button onclick={props.delete_all_onclick.clone()}>
-            {"Delete All Todos"}
-        </button>
+impl TodoInput {
+    fn style() -> StyleSource {
+        css!(
+            r#"
+            width: 40%;
+            height: 40px;
+            padding: 10px 20px;
+            margin: 20px 20px 20px 0px;
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            border-left-width: 0.5px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 0px 20px 20px 0px;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease;
+            &:hover {
+                background-color: rgba(0, 0, 0, 0.10);
+            }
+            &:focus {
+                background-color: rgba(0, 0, 0, 0.10);
+                outline: none;
+                box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+            }
+        "#
+        )
     }
 }
+// endregion
 
-#[derive(Properties, PartialEq)]
-struct FilterInputProps {
+// region DeleteAllTodosButton
+enum DeleteAllTodosButtonMessage {}
+#[derive(PartialEq, Properties)]
+pub struct DeleteAllTodosButtonProps {
+    delete_all_onclick: Callback<MouseEvent>,
+}
+struct DeleteAllTodosButton;
+impl Component for DeleteAllTodosButton {
+    type Message = DeleteAllTodosButtonMessage;
+    type Properties = DeleteAllTodosButtonProps;
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self
+    }
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            <button class={Self::style()} onclick={ctx.props().delete_all_onclick.clone()} tabindex="0">
+                {"Delete All Todos"}
+            </button>
+        }
+    }
+}
+impl DeleteAllTodosButton {
+    fn style() -> StyleSource {
+        css!(
+            r#"
+            width: 10%;
+            height: 40px;
+            padding: 10px 20px;
+            margin: 20px 20px;
+            cursor: pointer;
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            color: rgba(0, 0, 0, 0.75);
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 20px;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+            &:hover {
+                background-color: rgba(0, 0, 0, 0.10);
+            }
+            &:active {
+                background-color: rgba(0, 0, 0, 0.15);
+            }
+            &:focus {
+                background-color: rgba(0, 0, 0, 0.10);
+                outline: none;
+                box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+            }
+        "#
+        )
+    }
+}
+// endregion
+
+// region FilterInput
+enum FilterInputMessage {}
+#[derive(PartialEq, Properties)]
+pub struct FilterInputProps {
     filter_oninput: Callback<InputEvent>,
 }
-#[function_component]
-fn FilterInput(props: &FilterInputProps) -> Html {
-    let style = css!(r#"
-        width: 100%;
-        padding: 12px 20px;
-        margin: 8px 0;
-        box-sizing: border-box;
-        border: 2px solid red;
-        border-radius: 4px;
-    "#);
-    let onfocus = Callback::from(|e: FocusEvent| {
-
-    });
-
-    html! {
-        <input class={style} type="text" oninput={props.filter_oninput.clone()} placeholder="Filter"/>
+struct FilterInput;
+impl Component for FilterInput {
+    type Message = FilterInputMessage;
+    type Properties = FilterInputProps;
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self
+    }
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            <input
+                class={Self::style()}
+                type="text"
+                oninput={ctx.props().filter_oninput.clone()}
+                placeholder="Filter"
+            />
+        }
     }
 }
+impl FilterInput {
+    fn style() -> StyleSource {
+        css!(
+            r#"
+            width: 40%;
+            height: 40px;
+            padding: 10px 20px;
+            margin: 20px 0px 20px 20px;
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            border-right-width: 0.5px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 20px 0px 0px 20px;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease;
+            &:hover {
+                background-color: rgba(0, 0, 0, 0.10);
+            }
+            &:focus {
+                background-color: rgba(0, 0, 0, 0.10);
+                outline: none;
+                box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+            }
+        "#
+        )
+    }
+}
+// endregion
